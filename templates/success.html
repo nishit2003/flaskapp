@@ -1,0 +1,26 @@
+
+
+{% extends 'layout.html' %}
+
+{% block content %}
+    <h1>Success!</h1>
+    <h3>Here are your details - </h3>
+    <br>
+    <br>
+    <p>First Name: {{ user.first_name or 'N/A' }}</p>
+    <br>
+    <p>Last Name: {{ user.last_name or 'N/A' }}</p>
+    <br>
+    <p>Email: {{ user.email or 'N/A' }}</p>
+    <br>
+    <p>Word Count: {{ user.word_count or 'No file uploaded' }}</p>  <!-- Display word count -->
+
+    {% if user.file_path %}
+        <a href="{{ url_for('download_file', username=username) }}">Download File</a>
+    {% else %}
+        <p>No file uploaded.</p>
+    {% endif %}
+
+    <br><br>
+    <p><a href="/">Sign Out!</a></p><br>
+{% endblock %}
