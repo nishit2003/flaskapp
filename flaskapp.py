@@ -1,4 +1,3 @@
-
 # Nishit Grover(M15329773)
 
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory
@@ -6,28 +5,24 @@ from werkzeug.utils import secure_filename
 import sqlite3
 import os
 
-
+# Create Flask application instance
 app = Flask(__name__)
 
-# Configuration for file upload
-UPLOAD_FOLDER = '/home/ubuntu/flaskapp/uploads'  # Absolute path
-# Allowed file extensions
-ALLOWED_EXTENSIONS = {'txt'}
-# Set the upload folder
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Configure file upload settings
+UPLOAD_FOLDER = '/home/ubuntu/flaskapp/uploads'  # Directory for file uploads
+ALLOWED_EXTENSIONS = {'txt'}  # Allowed file types for upload
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER  # Set the upload folder in app configuration
 
-# Function to check if the file extension is allowed
+# Function to check if the uploaded file type is allowed
 def allowed_file(filename):
-    # Check if the file extension is in the allowed set
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Initialize the SQLite database
+# Function to initialize the SQLite database
 def init_db():
     # Connect to the SQLite database
-    conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path
-    # Create a cursor object
+    conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path to database
     c = conn.cursor()
-    # Create a table to store user data (if not exists)
+    # Create a table to store user data if it doesn't already exist
     c.execute('''CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL UNIQUE,
@@ -38,167 +33,112 @@ def init_db():
                     file_path TEXT,
                     word_count INTEGER
                 )''')
-    # Commit the changes
+    # Commit changes and close the connection
     conn.commit()
-    # Close the connection
     conn.close()
-# Initialize the database
+
+# Initialize the database when the application starts
 init_db()
 
-# Define the routes
+# Route for the home page
 @app.route('/')
-# Define the home route
 def home():
-    # Render the welcome page
-    return render_template('welcome.html')
+    return render_template('welcome.html')  # Render the welcome page
 
-# Define the register route
+# Route for the user registration page
 @app.route('/register', methods=['GET', 'POST'])
-# Define the register function
 def register():
-    # Check if the request method is POST
     if request.method == 'POST':
-        # Get the form data
-        # Get the username
+        # Get registration form data
         username = request.form['username']
-        # Get the password
         password = request.form['password']
-        # Get the first name
         first_name = request.form['first_name']
-        # Get the last name
         last_name = request.form['last_name']
-        # Get the email
         email = request.form['email']
 
-        # Check if the file is uploaded
+        # Handle file upload if provided
         file = request.files['file']
-        # Initialize the file path and word count
         file_path = None
-        # Initialize the word count
         word_count = None
 
-        # Save the file to the uploads folder
         if file and allowed_file(file.filename):
-            # Secure the filename
-            filename = secure_filename(file.filename)
-            # Save the file to the uploads folder
+            filename = secure_filename(file.filename)  # Secure the uploaded file name
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            # Save the file
-            file.save(file_path)
-            # Count the number of words in the file
+            file.save(file_path)  # Save the file
+            # Count words in the uploaded file
             with open(file_path, 'r') as f:
-                # Read the file content
                 file_content = f.read()
-            # Count the number of words
             word_count = len(file_content.split())
 
-        # Connect to the SQLite database
-        conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path
-        # Create a cursor object
+        # Insert user data into the database
+        conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path to database
         c = conn.cursor()
-        # Insert the user data into the database
         try:
-            # Insert the user data into the database
             c.execute("INSERT INTO users (username, password, first_name, last_name, email, file_path, word_count) VALUES (?, ?, ?, ?, ?, ?, ?)", 
                       (username, password, first_name, last_name, email, file_path, word_count))
-            # Commit the changes
             conn.commit()
-        # Handle the exception
         except sqlite3.IntegrityError:
-            # Return an error message
-            return 'Oops! User already exists in the database!'
-        # Close the connection
+            return 'Oops! User already exists in the database!'  # Handle duplicate username
         finally:
-            # Close the connection
             conn.close()
-        # Redirect to the profile page
-        return redirect(url_for('profile', username=username))
-    # Render the registration page
-    return render_template('registration.html')
+        return redirect(url_for('profile', username=username))  # Redirect to profile page after successful registration
+    return render_template('registration.html')  # Render registration page for GET request
 
-# Define the login route
+# Route for the user login page
 @app.route('/login', methods=['GET', 'POST'])
-# Define the login function
 def login():
-    # Check if the request method is POST
     if request.method == 'POST':
-        # Get the form data
-        # Get the username
+        # Get login form data
         username = request.form['username']
-        # Get the password
         password = request.form['password']
 
-        # Connect to the SQLite database
-        conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path
-        # Create a cursor object
+        # Check credentials against the database
+        conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path to database
         c = conn.cursor()
-        # Fetch the user data from the database
         c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
-        # Fetch the user data
         user = c.fetchone()
-        # Close the connection
         conn.close()
 
-        # Check if the user exists
         if user:
-            # Redirect to the profile page
-            return redirect(url_for('profile', username=username))
-        # Return an error message
+            return redirect(url_for('profile', username=username))  # Redirect to profile if credentials are valid
         else:
-            return 'Error! Invalid Login Credentials!'
-    # Render the login page
-    return render_template('login.html')
+            return 'Error! Invalid Login Credentials!'  # Handle invalid login
+    return render_template('login.html')  # Render login page for GET request
 
-# Define the profile route
+# Route for the user profile page
 @app.route('/profile/<username>')
-# Define the profile function
 def profile(username):
-    # Connect to the SQLite database
-    conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path
-    # Create a cursor object
+    # Fetch user data from the database
+    conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path to database
     c = conn.cursor()
-    # Fetch the user data from the database
     c.execute("SELECT first_name, last_name, email, file_path, word_count FROM users WHERE username=?", (username,))
-    # Fetch the user data
     user = c.fetchone()
-    # Close the connection
     conn.close()
 
-    # Check if the user exists
     if user:
-        # Unpack the user data, i.e., first_name, last_name, email, file_path, word_count
+        # Display user profile if found
         first_name, last_name, email, file_path, word_count = user
-        # Render the profile page, passing the user data, i.e., username, first_name, last_name, email, file_path, word_count
         return render_template('profile.html', username=username, first_name=first_name, last_name=last_name, 
                                email=email, file_path=file_path, word_count=word_count)
-    # Return an error message
     else:
-        return 'Error! User Not Found!'
-    
-# Define the download route for the file to get downloaded (word count file)
+        return 'Error! User Not Found!'  # Handle case where user is not found
+
+# Route for downloading a file uploaded by the user
 @app.route('/download/<username>')
-# Define the download function
 def download_file(username):
-    # Connect to the SQLite database
-    conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path
-    # Create a cursor object
-    c = conn.cursor()
     # Fetch the file path from the database
+    conn = sqlite3.connect('/home/ubuntu/flaskapp/users.db')  # Absolute path to database
+    c = conn.cursor()
     c.execute("SELECT file_path FROM users WHERE username=?", (username,))
-    # Fetch the file path
     file_path = c.fetchone()
-    # Close the connection
     conn.close()
 
-    # Check if the file path exists
-    if file_path and file_path[0]:  # Check if file_path is not None and contains a value
-        # Return the file for download
+    if file_path and file_path[0]:  # Ensure file exists
         return send_from_directory(directory=os.path.dirname(file_path[0]), 
                                    path=os.path.basename(file_path[0]), 
-                                   as_attachment=True)
-    # Return an error message, if the file is not found
-    return 'Error! File Not Found!'
+                                   as_attachment=True)  # Send file for download
+    return 'Error! File Not Found!'  # Handle case where file is not found
 
-# Finally, let's run the Flask app
+# Run the Flask app in debug mode
 if __name__ == '__main__':
     app.run(debug=True)
